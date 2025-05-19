@@ -1,6 +1,6 @@
-# Yakiyo - Medication Management App
+# Yakiyo - Redosing Management App
 
-Yakiyo is a Flutter-based medication management application that helps users track and manage their medication schedules effectively.
+Yakiyo is a IOT-based redosing management application that helps users track and manage their medication schedules effectively and to prevent redosing.
 
 ## Features
 
