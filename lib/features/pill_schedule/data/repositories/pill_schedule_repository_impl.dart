@@ -27,4 +27,13 @@ class PillScheduleRepositoryImpl implements PillScheduleRepository {
       throw Exception('Failed to get pill schedules: $e');
     }
   }
+
+  @override
+  Future<void> updatePillSchedule(PillScheduleModel schedule) async {
+    try {
+      await _apiService.updatePillSchedule(schedule.id, schedule.toJson());
+    } catch (e) {
+      throw Exception('Failed to update pill schedule: $e');
+    }
+  }
 }

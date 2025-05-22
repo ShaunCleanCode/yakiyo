@@ -20,4 +20,13 @@ class MockPillScheduleRepository implements PillScheduleRepository {
     await Future.delayed(const Duration(milliseconds: 500));
     return _mockSchedules;
   }
+
+  @override
+  Future<void> updatePillSchedule(PillScheduleModel schedule) async {
+    final index = _mockSchedules.indexWhere((s) => s.id == schedule.id);
+    if (index != -1) {
+      _mockSchedules[index] = schedule;
+    }
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
 }

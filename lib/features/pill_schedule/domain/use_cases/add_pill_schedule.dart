@@ -10,3 +10,13 @@ class AddPillScheduleUseCase {
     await _repository.addPillSchedule(schedule);
   }
 }
+
+class UpdatePillScheduleUseCase {
+  final PillScheduleRepository _repository;
+
+  UpdatePillScheduleUseCase(this._repository);
+
+  Future<void> call(PillScheduleModel schedule) async {
+    await _repository.updatePillSchedule(schedule);
+  }
+}

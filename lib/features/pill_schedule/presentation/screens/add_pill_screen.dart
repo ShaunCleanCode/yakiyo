@@ -155,17 +155,18 @@ class _AddPillScreenState extends ConsumerState<AddPillScreen> {
   }
 
   List<String> _extractTimeSlots(PillScheduleModel schedule) {
+    // 대표 요일(예: 첫 번째 daySchedule)만 사용
+    if (schedule.daySchedules.isEmpty) return [];
+    final firstDay = schedule.daySchedules.first;
     final timeSlots = <String>[];
-    for (var daySchedule in schedule.daySchedules) {
-      for (var timeSlot in daySchedule.timeSlots) {
-        final hour = timeSlot.time.hour;
-        if (hour >= 5 && hour < 11 && !timeSlots.contains('아침')) {
-          timeSlots.add('아침');
-        } else if (hour >= 11 && hour < 15 && !timeSlots.contains('점심')) {
-          timeSlots.add('점심');
-        } else if (hour >= 15 && hour < 21 && !timeSlots.contains('저녁')) {
-          timeSlots.add('저녁');
-        }
+    for (var timeSlot in firstDay.timeSlots) {
+      final hour = timeSlot.time.hour;
+      if (hour >= 5 && hour < 11 && !timeSlots.contains('아침')) {
+        timeSlots.add('아침');
+      } else if (hour >= 11 && hour < 15 && !timeSlots.contains('점심')) {
+        timeSlots.add('점심');
+      } else if (hour >= 15 && hour < 21 && !timeSlots.contains('저녁')) {
+        timeSlots.add('저녁');
       }
     }
     return timeSlots;
@@ -252,6 +253,7 @@ class _AddPillDialogState extends ConsumerState<AddPillDialog> {
   String _pillName = '';
   final List<bool> _selectedDays = List.generate(7, (index) => false);
   final Map<String, TimeOfDay?> _mealTimes = {};
+  late final TextEditingController _pillNameController;
 
   // 시간대별 허용 범위 정의
   final Map<String, RangeValues> _timeRanges = {
@@ -263,10 +265,13 @@ class _AddPillDialogState extends ConsumerState<AddPillDialog> {
   @override
   void initState() {
     super.initState();
+    _pillNameController = TextEditingController(
+      text: widget.initialSchedule?.name ?? '',
+    );
+    _pillName = _pillNameController.text;
     if (widget.initialSchedule != null) {
       _startDate = widget.initialSchedule!.startDate;
       _endDate = widget.initialSchedule!.endDate;
-      _pillName = widget.initialSchedule!.name;
       for (var i = 0; i < 7; i++) {
         _selectedDays[i] = widget.initialSchedule!.daySchedules
             .any((ds) => ds.dayOfWeek == i + 1);
@@ -279,6 +284,12 @@ class _AddPillDialogState extends ConsumerState<AddPillDialog> {
         }
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _pillNameController.dispose();
+    super.dispose();
   }
 
   String _getTimeLabel(DateTime time) {
@@ -327,7 +338,7 @@ class _AddPillDialogState extends ConsumerState<AddPillDialog> {
                 onTap: () async {
                   final date = await showDatePicker(
                     context: context,
-                    initialDate: DateTime.now(),
+                    initialDate: _startDate ?? DateTime.now(),
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
                   );
@@ -346,7 +357,7 @@ class _AddPillDialogState extends ConsumerState<AddPillDialog> {
                 onTap: () async {
                   final date = await showDatePicker(
                     context: context,
-                    initialDate: _startDate ?? DateTime.now(),
+                    initialDate: _endDate ?? _startDate ?? DateTime.now(),
                     firstDate: _startDate ?? DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
                   );
@@ -380,6 +391,7 @@ class _AddPillDialogState extends ConsumerState<AddPillDialog> {
         ),
         const SizedBox(height: 8),
         TextField(
+          controller: _pillNameController,
           decoration: InputDecoration(
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding:
@@ -588,8 +600,8 @@ class _AddPillDialogState extends ConsumerState<AddPillDialog> {
         Expanded(
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
+              backgroundColor: Colors.grey[200],
+              foregroundColor: Colors.black87,
               minimumSize: const Size.fromHeight(48),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -672,7 +684,9 @@ class _AddPillDialogState extends ConsumerState<AddPillDialog> {
     }
 
     final schedule = PillScheduleModel(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: widget.isEdit && widget.initialSchedule != null
+          ? widget.initialSchedule!.id
+          : DateTime.now().microsecondsSinceEpoch.toString(),
       name: _pillName,
       description: '',
       daySchedules: daySchedules,
@@ -682,12 +696,18 @@ class _AddPillDialogState extends ConsumerState<AddPillDialog> {
     );
 
     try {
-      await ref.read(addPillScheduleProvider(schedule).future);
+      if (widget.isEdit && widget.initialSchedule != null) {
+        await ref.read(updatePillScheduleProvider(schedule).future);
+      } else {
+        await ref.read(addPillScheduleProvider(schedule).future);
+      }
       if (mounted) {
         ref.invalidate(pillScheduleProvider);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('약 스케줄이 추가되었습니다')),
+          SnackBar(
+              content:
+                  Text(widget.isEdit ? '약 스케줄이 수정되었습니다' : '약 스케줄이 추가되었습니다')),
         );
         Navigator.of(context).pop(); // Close dialog
       }
@@ -823,10 +843,15 @@ class PillDetailDialog extends StatelessWidget {
 
   List<Widget> _buildTimeRows(PillScheduleModel schedule) {
     final result = <Widget>[];
-    for (final ds in schedule.daySchedules) {
-      for (final ts in ds.timeSlots) {
-        result.add(Text('${_getTimeLabel(ts.time)} - ${_formatTime(ts.time)}',
+    if (schedule.daySchedules.isEmpty) return result;
+    final firstDay = schedule.daySchedules.first;
+    final addedLabels = <String>{};
+    for (final ts in firstDay.timeSlots) {
+      final label = _getTimeLabel(ts.time);
+      if (!addedLabels.contains(label)) {
+        result.add(Text('$label - ${_formatTime(ts.time)}',
             style: const TextStyle(fontSize: 15)));
+        addedLabels.add(label);
       }
     }
     return result;
