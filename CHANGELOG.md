@@ -18,9 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Updated README.md with project documentation
 - Added CONTRIBUTING.md with development guidelines
+- 시간 선택 필드 UI 개선 및 다이얼로그 최대 높이 제한
 
 ### Fixed
 - None
+- 시간대별 중복 약 정보 생성 버그 수정
 
 ### Security
 - None
